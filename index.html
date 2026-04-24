@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dork Nexus</title>
+
+<style>
+  :root {
+    --bg: #080509;
+    --surface: #100d14;
+    --surface2: #17121f;
+    --border: rgba(180,140,255,0.08);
+    --border2: rgba(180,140,255,0.18);
+    --text: #ddd6f0;
+    --muted: #7a6e93;
+    --accent: #b46fff;
+    --accent2: #c9a0ff;
+    --accent3: #8b3dff;
+    --green: #a78bfa;
+    --yellow: #c4a8ff;
+    --red: #ff4d6a;
+    --mono: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(180,111,255,0.015) 2px, rgba(180,111,255,0.015) 4px);
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* Grid bg */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(180,111,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(180,111,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .logo-eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .logo-title {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1;
+  }
+  .logo-title span { color: var(--accent); }
+  .status-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Panel */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .panel-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .panel-body { padding: 16px; }
+
+  /* Form elements */
+  label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  input[type=text], select, textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    -webkit-appearance: none;
+  }
+  input[type=text]::placeholder { color: #3a3f4b; }
+  input[type=text]:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(180,111,255,0.18);
+  }
+  select {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+  select option { background: #181c24; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  /* Tag system */
+  .tag-scroll {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 148px;
+    overflow-y: auto;
+    padding: 2px 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 9px;
+    border-radius: 4px;
+    border: 1px solid var(--border2);
+    cursor: pointer;
+    color: var(--muted);
+    background: transparent;
+    transition: all 0.1s;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .tag:hover { border-color: var(--accent); color: var(--accent); }
+  .tag.on {
+    background: rgba(180,111,255,0.12);
+    color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(180,111,255,0.18);
+  }
+
+  /* Query output */
+  .query-output {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--accent);
+    min-height: 56px;
+    word-break: break-all;
+    position: relative;
+    margin-bottom: 14px;
+  }
+  .query-output.empty { color: var(--muted); font-size: 12px; }
+
+  /* Highlight query parts */
+  .q-op { color: #8b3dff; }
+  .q-val { color: #b46fff; }
+  .q-kw { color: #c8b9e6; }
+  .q-excl { color: #ff4d6a; }
+
+  /* Engine buttons */
+  .engine-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .eng-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: var(--bg);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+  .eng-btn:hover { transform: translateY(-2px); }
+  .eng-btn .icon { font-size: 22px; line-height: 1; }
+  .eng-btn.google { border-color: rgba(180,111,255,0.35); }
+  .eng-btn.google:hover { background: rgba(180,111,255,0.1); border-color: #b46fff; color: #b46fff; box-shadow: 0 4px 20px rgba(180,111,255,0.2); }
+  .eng-btn.bing { border-color: rgba(160,160,185,0.3); }
+  .eng-btn.bing:hover { background: rgba(192,192,220,0.08); border-color: #c0c0dc; color: #c0c0dc; box-shadow: 0 4px 20px rgba(192,192,220,0.15); }
+  .eng-btn.baidu { border-color: rgba(139,61,255,0.35); }
+  .eng-btn.baidu:hover { background: rgba(139,61,255,0.1); border-color: #8b3dff; color: #8b3dff; box-shadow: 0 4px 20px rgba(139,61,255,0.2); }
+  .eng-btn.yandex { border-color: rgba(200,185,230,0.25); }
+  .eng-btn.yandex:hover { background: rgba(200,185,230,0.06); border-color: #c8b9e6; color: #c8b9e6; box-shadow: 0 4px 20px rgba(200,185,230,0.12); }
+
+  .eng-name { font-weight: 700; letter-spacing: 0.1em; font-size: 12px; }
+
+  /* Action buttons */
+  .btn-row { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(180,111,255,0.08); }
+  .btn.primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  .btn.primary:hover { box-shadow: 0 0 20px rgba(180,111,255,0.35); }
+  .btn.danger { border-color: rgba(255,77,106,0.4); color: #ff4444; }
+  .btn.danger:hover { background: rgba(255,77,106,0.08); border-color: #ff4d6a; }
+
+  /* History */
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .history-item:hover { border-color: var(--border2); }
+  .history-q {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .history-ts {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .history-del {
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.1s;
+  }
+  .history-del:hover { color: var(--red); }
+  .empty-state {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    padding: 24px;
+  }
+
+  /* Tag count badge */
+  .badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(180,111,255,0.12);
+    color: var(--accent);
+    margin-left: 6px;
+  }
+
+  /* Shortcut tags */
+  .shortcut-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .sc-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border2);
+    color: var(--accent2);
+    border-color: rgba(180,111,255,0.25);
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.1s;
+  }
+  .sc-tag:hover { background: rgba(180,111,255,0.08); border-color: var(--accent2); }
+
+  /* Footer */
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .warn {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(180,111,255,0.2);
+    background: rgba(180,111,255,0.04);
+    margin-bottom: 1rem;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #9b7fd4;
+    line-height: 1.6;
+  }
+  .warn-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+  /* Copied flash */
+  #copied-msg {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  @media(max-width:600px) {
+    .grid2, .grid3 { grid-template-columns: 1fr; }
+    .engine-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">
+      <span class="logo-eyebrow">OSINT // QUERY BUILDER</span>
+      <span class="logo-title">DORK<span> NEXUS</span></span>
+    </div>
+    <div class="status-bar">
+      <span class="status-dot"></span>
+      <span id="hcount">0</span>&nbsp;saved&nbsp;·&nbsp;v1.0
+    </div>
+  </header>
+
+  <div class="warn">
+    <span class="warn-icon">⚠</span>
+    For authorized security research, OSINT, and reconnaissance on systems you own or have permission to test. Unauthorized access may violate CFAA or equivalent laws.
+  </div>
+
+  <!-- SHORTCUTS -->
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label">Quick templates</span></div>
+    <div class="panel-body">
+      <div class="shortcut-grid" id="shortcuts"></div>
+    </div>
+  </div>
+
+  <!-- CORE QUERY -->
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label">Core query</span></div>
+    <div class="panel-body">
+      <div class="grid2" style="margin-bottom:12px;">
+        <div><label>Keywords / phrase</label><input type="text" id="kw" placeholder='"confidential" OR "internal use only"' /></div>
+        <div><label>Language / locale</label>
+          <select id="lang">
+            <option value="en">English</option>
+            <option value="zh">Mandarin (中文)</option>
+            <option value="ru">Russian (Русский)</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2" style="margin-bottom:12px;">
+        <div><label>site: restriction</label><input type="text" id="site" placeholder="gov.uk, .mil, example.com" /></div>
+        <div><label>inurl: contains</label><input type="text" id="inurl" placeholder="admin login upload wp-config" /></div>
+      </div>
+      <div class="grid3" style="margin-bottom:12px;">
+        <div><label>intitle: contains</label><input type="text" id="intitle" placeholder="index of dashboard" /></div>
+        <div><label>intext: contains</label><input type="text" id="intext" placeholder="password secret token" /></div>
+        <div><label>exclude words (−)</label><input type="text" id="excl" placeholder="login wikipedia" /></div>
+      </div>
+      <div>
+        <label>Date range</label>
+        <select id="daterange" style="width:auto;min-width:180px;">
+          <option value="">Any time</option>
+          <option value="d">Past 24 hours</option>
+          <option value="w">Past week</option>
+          <option value="m">Past month</option>
+          <option value="y">Past year</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILE TYPES -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label">File types</span>
+      <span class="badge" id="ft-count">0</span>
+    </div>
+    <div class="panel-body">
+      <div class="tag-scroll" id="ft-tags"></div>
+    </div>
+  </div>
+
+  <!-- TLDS -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label">Country TLDs &amp; domains</span>
+      <span class="badge" id="tld-count">0</span>
+    </div>
+    <div class="panel-body">
+      <div class="tag-scroll" id="tld-tags"></div>
+    </div>
+  </div>
+
+  <!-- OUTPUT -->
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label">Generated query</span></div>
+    <div class="panel-body">
+      <div class="query-output empty" id="qbox">Start filling in options above…</div>
+      <div class="btn-row">
+        <button class="btn primary" onclick="copyQ()">Copy query</button>
+        <button class="btn danger" onclick="clearAll()">Clear all</button>
+        <button class="btn" onclick="saveQ()">Save to history</button>
+        <span id="copied-msg">Copied!</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ENGINES -->
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label">Launch search</span></div>
+    <div class="panel-body">
+      <div class="engine-grid">
+        <button class="eng-btn google" onclick="openEngine('google')">
+          <span class="icon">G</span>
+          <span class="eng-name">GOOGLE</span>
+        </button>
+        <button class="eng-btn bing" onclick="openEngine('bing')">
+          <span class="icon">B</span>
+          <span class="eng-name">BING</span>
+        </button>
+        <button class="eng-btn baidu" onclick="openEngine('baidu')">
+          <span class="icon">百</span>
+          <span class="eng-name">BAIDU</span>
+        </button>
+        <button class="eng-btn yandex" onclick="openEngine('yandex')">
+          <span class="icon">Я</span>
+          <span class="eng-name">YANDEX</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label">Query history</span>
+      <span class="badge" id="hcount2">0</span>
+    </div>
+    <div class="panel-body">
+      <div id="history-list"><div class="empty-state">No saved queries yet.</div></div>
+    </div>
+  </div>
+
+  <footer>
+    <span>DORK NEXUS · OSINT Query Builder</span>
+    <span>Use responsibly · Authorized targets only</span>
+  </footer>
+</div>
+
+<script>
+const FILE_TYPES = [
+  "pdf","doc","docx","xls","xlsx","ppt","pptx","txt","csv","xml","json","sql",
+  "db","mdb","accdb","bak","log","cfg","conf","ini","env","htpasswd","key","pem",
+  "zip","tar","gz","rar","7z","iso","img","apk","exe","sh","bat","ps1","php",
+  "asp","aspx","jsp","html","htm","js","py","rb","java","c","cpp","h","go",
+  "yaml","yml","toml","dockerfile","npmrc","git","svn","ds_store","swp","bkp","old","tmp"
+];
+
+const TLDS = [
+  ".com",".org",".net",".edu",".gov",".mil",".int",".info",".biz",".co",".io",".ai",".app",".dev",
+  ".us",".uk",".ca",".au",".de",".fr",".jp",".cn",".ru",".in",
+  ".br",".mx",".it",".es",".nl",".se",".no",".dk",".fi",".pl",
+  ".ch",".at",".be",".pt",".gr",".cz",".hu",".ro",".bg",".sk",
+  ".hr",".si",".rs",".lt",".lv",".ee",".ua",".by",".kz",".tr",
+  ".il",".sa",".ae",".eg",".za",".ng",".ke",".gh",".pk",".bd",
+  ".id",".my",".sg",".th",".vn",".ph",".kr",".nz",".ar",".cl"
+];
+
+const SHORTCUTS = [
+  { label: "Open directories", kw: '"index of"', intitle: "index.of", ft: [], tld: [] },
+  { label: "Exposed .env files", kw: "", ft: ["env"], intitle: "", intext: "DB_PASSWORD" },
+  { label: "SQL dumps", kw: "", ft: ["sql"], tld: [] },
+  { label: "Config files", kw: "", ft: ["conf","cfg","ini"], tld: [] },
+  { label: "Log files", kw: "", ft: ["log"], tld: [] },
+  { label: "PDF reports", kw: '"confidential"', ft: ["pdf"], tld: [] },
+  { label: "Backup files", kw: "", ft: ["bak","bkp","old"], tld: [] },
+  { label: "Admin panels", kw: "", inurl: "admin login", tld: [] },
+  { label: "Login pages", kw: "", intitle: "login", inurl: "login", tld: [] },
+  { label: "Camera feeds", kw: "", intitle: "live view axis", tld: [] },
+];
+
+let selFT = new Set();
+let selTLD = new Set();
+let history = JSON.parse(localStorage.getItem('dorkNexusHistory') || '[]');
+
+function renderTags(id, items, selSet) {
+  const el = document.getElementById(id);
+  el.innerHTML = items.map(t =>
+    `<span class="tag${selSet.has(t)?' on':''}" onclick="toggleTag('${id}','${t.replace(/'/g,"\\'")}')"> ${t}</span>`
+  ).join('');
+}
+
+function toggleTag(id, val) {
+  const s = id === 'ft-tags' ? selFT : selTLD;
+  s.has(val) ? s.delete(val) : s.add(val);
+  renderTags(id, id === 'ft-tags' ? FILE_TYPES : TLDS, s);
+  document.getElementById(id === 'ft-tags' ? 'ft-count' : 'tld-count').textContent = s.size;
+  buildQuery();
+}
+
+function buildRawParts() {
+  const kw = document.getElementById('kw').value.trim();
+  const site = document.getElementById('site').value.trim();
+  const inurl = document.getElementById('inurl').value.trim();
+  const intitle = document.getElementById('intitle').value.trim();
+  const intext = document.getElementById('intext').value.trim();
+  const excl = document.getElementById('excl').value.trim();
+  const dr = document.getElementById('daterange').value;
+
+  let parts = [];
+  if (kw) parts.push({ type: 'kw', val: kw });
+
+  const ftArr = [...selFT];
+  if (ftArr.length === 1) parts.push({ type: 'op', val: `filetype:${ftArr[0]}` });
+  else if (ftArr.length > 1) parts.push({ type: 'op', val: `(${ftArr.map(f => `filetype:${f}`).join(' OR ')})` });
+
+  const tldArr = [...selTLD];
+  if (tldArr.length === 1) parts.push({ type: 'op', val: `site:${tldArr[0]}` });
+  else if (tldArr.length > 1) parts.push({ type: 'op', val: `(${tldArr.map(t => `site:${t}`).join(' OR ')})` });
+
+  if (site) parts.push({ type: 'op', val: `site:${site}` });
+  if (inurl) {
+    const words = inurl.trim().split(/\s+/).filter(Boolean);
+    words.forEach(w => parts.push({ type: 'op', val: `inurl:${w}` }));
+  }
+  if (intitle) {
+    const words = intitle.trim().split(/\s+/).filter(Boolean);
+    words.forEach(w => parts.push({ type: 'op', val: `intitle:${w}` }));
+  }
+  if (intext) {
+    const words = intext.trim().split(/\s+/).filter(Boolean);
+    words.forEach(w => parts.push({ type: 'op', val: `intext:${w}` }));
+  }
+  if (excl) {
+    excl.split(/\s+/).filter(Boolean).forEach(w => parts.push({ type: 'excl', val: `-${w}` }));
+  }
+  return parts;
+}
+
+function buildQuery() {
+  const parts = buildRawParts();
+  const box = document.getElementById('qbox');
+  if (!parts.length) {
+    box.innerHTML = 'Start filling in options above…';
+    box.classList.add('empty');
+    return;
+  }
+  box.classList.remove('empty');
+  box.innerHTML = parts.map(p => {
+    if (p.type === 'kw') return `<span class="q-kw">${esc(p.val)}</span>`;
+    if (p.type === 'excl') return `<span class="q-excl">${esc(p.val)}</span>`;
+    const [op, ...rest] = p.val.split(':');
+    return `<span class="q-op">${esc(op)}:</span><span class="q-val">${esc(rest.join(':'))}</span>`;
+  }).join(' ');
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function getRawQuery() {
+  return buildRawParts().map(p => p.val).join(' ');
+}
+
+function buildURL(engine) {
+  const q = encodeURIComponent(getRawQuery());
+  const lang = document.getElementById('lang').value;
+  const dr = document.getElementById('daterange').value;
+
+  if (engine === 'google') {
+    let url = `https://www.google.com/search?q=${q}`;
+    if (lang === 'zh') url += '&hl=zh-CN';
+    else if (lang === 'ru') url += '&hl=ru';
+    if (dr === 'd') url += '&tbs=qdr:d';
+    else if (dr === 'w') url += '&tbs=qdr:w';
+    else if (dr === 'm') url += '&tbs=qdr:m';
+    else if (dr === 'y') url += '&tbs=qdr:y';
+    return url;
+  }
+  if (engine === 'bing') {
+    let url = `https://www.bing.com/search?q=${q}`;
+    if (lang === 'zh') url += '&setlang=zh-Hans';
+    else if (lang === 'ru') url += '&setlang=ru';
+    return url;
+  }
+  if (engine === 'baidu') return `https://www.baidu.com/s?wd=${q}`;
+  if (engine === 'yandex') {
+    let url = lang === 'ru' ? `https://yandex.ru/search/?text=${q}` : `https://yandex.com/search/?text=${q}`;
+    if (dr === 'd') url += '&within=77';
+    else if (dr === 'w') url += '&within=1';
+    else if (dr === 'm') url += '&within=2';
+    else if (dr === 'y') url += '&within=4';
+    return url;
+  }
+}
+
+function openEngine(engine) {
+  const url = buildURL(engine);
+  if (url) window.open(url, '_blank');
+}
+
+function copyQ() {
+  const q = getRawQuery();
+  if (!q) return;
+  navigator.clipboard.writeText(q).catch(() => {});
+  const el = document.getElementById('copied-msg');
+  el.style.opacity = '1';
+  setTimeout(() => el.style.opacity = '0', 2000);
+}
+
+function clearAll() {
+  ['kw','site','inurl','intitle','intext','excl'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('lang').value = 'en';
+  document.getElementById('daterange').value = '';
+  selFT.clear(); selTLD.clear();
+  renderTags('ft-tags', FILE_TYPES, selFT);
+  renderTags('tld-tags', TLDS, selTLD);
+  document.getElementById('ft-count').textContent = '0';
+  document.getElementById('tld-count').textContent = '0';
+  buildQuery();
+}
+
+function saveQ() {
+  const q = getRawQuery();
+  if (!q) return;
+  const entry = { q, ts: new Date().toISOString() };
+  history.unshift(entry);
+  if (history.length > 30) history = history.slice(0, 30);
+  localStorage.setItem('dorkNexusHistory', JSON.stringify(history));
+  renderHistory();
+}
+
+function deleteHistory(i) {
+  history.splice(i, 1);
+  localStorage.setItem('dorkNexusHistory', JSON.stringify(history));
+  renderHistory();
+}
+
+function loadHistory(i) {
+  const q = history[i].q;
+  document.getElementById('kw').value = q;
+  buildQuery();
+}
+
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  const n = document.getElementById('hcount');
+  const n2 = document.getElementById('hcount2');
+  n.textContent = history.length;
+  n2.textContent = history.length;
+  if (!history.length) {
+    el.innerHTML = '<div class="empty-state">No saved queries yet.</div>';
+    return;
+  }
+  el.innerHTML = history.map((h, i) => `
+    <div class="history-item" onclick="loadHistory(${i})">
+      <span class="history-q">${esc(h.q)}</span>
+      <span class="history-ts">${new Date(h.ts).toLocaleString()}</span>
+      <span class="history-del" onclick="event.stopPropagation();deleteHistory(${i})">✕</span>
+    </div>
+  `).join('');
+}
+
+// Shortcuts
+function renderShortcuts() {
+  const el = document.getElementById('shortcuts');
+  el.innerHTML = SHORTCUTS.map((s, i) =>
+    `<button class="sc-tag" onclick="applyShortcut(${i})">${s.label}</button>`
+  ).join('');
+}
+
+function applyShortcut(i) {
+  clearAll();
+  const s = SHORTCUTS[i];
+  if (s.kw) document.getElementById('kw').value = s.kw;
+  if (s.inurl) document.getElementById('inurl').value = s.inurl;
+  if (s.intitle) document.getElementById('intitle').value = s.intitle;
+  if (s.intext) document.getElementById('intext').value = s.intext;
+  if (s.ft) s.ft.forEach(f => selFT.add(f));
+  renderTags('ft-tags', FILE_TYPES, selFT);
+  document.getElementById('ft-count').textContent = selFT.size;
+  buildQuery();
+}
+
+// Wire inputs
+['kw','site','inurl','intitle','intext','excl','lang','daterange'].forEach(id =>
+  document.getElementById(id).addEventListener('input', buildQuery)
+);
+document.getElementById('lang').addEventListener('change', buildQuery);
+document.getElementById('daterange').addEventListener('change', buildQuery);
+
+renderTags('ft-tags', FILE_TYPES, selFT);
+renderTags('tld-tags', TLDS, selTLD);
+renderShortcuts();
+renderHistory();
+</script>
+</body>
+</html>
